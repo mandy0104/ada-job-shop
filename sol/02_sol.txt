@@ -1,5 +1,5 @@
-The objective cost: 173.97700000000003
-Job 0 operation 0 start
+The objective cost: 164.8706895390323
+Job 0 operation 0 start at 44.0
 ... 44
 ... 45
 ... 46
@@ -14,20 +14,20 @@ Job 0 operation 0 start
 ... 55
 ... 56
 Job 0 operation 0 stop
-Job 0 operation 1 start
-... 51
-... 52
+Job 0 operation 1 start at 53.0
 ... 53
 ... 54
+... 55
+... 56
 Job 0 operation 1 stop
-Job 0 operation 2 start
+Job 0 operation 2 start at 39.0
 ... 39
 ... 40
 ... 41
 ... 42
 ... 43
 Job 0 operation 2 stop
-Job 1 operation 0 start
+Job 1 operation 0 start at -0.0
 ... 0
 ... 1
 ... 2
@@ -37,7 +37,7 @@ Job 1 operation 0 start
 ... 6
 ... 7
 Job 1 operation 0 stop
-Job 2 operation 0 start
+Job 2 operation 0 start at 7.999999350550994
 ... 8
 ... 9
 ... 10
@@ -48,7 +48,7 @@ Job 2 operation 0 start
 ... 15
 ... 16
 Job 2 operation 0 stop
-Job 3 operation 0 start
+Job 3 operation 0 start at -0.0
 ... 0
 ... 1
 ... 2
@@ -62,7 +62,7 @@ Job 3 operation 0 start
 ... 10
 ... 11
 Job 3 operation 0 stop
-Job 3 operation 1 start
+Job 3 operation 1 start at 12.0
 ... 12
 ... 13
 ... 14
@@ -72,25 +72,25 @@ Job 3 operation 1 start
 ... 18
 ... 19
 Job 3 operation 1 stop
-Job 3 operation 2 start
+Job 3 operation 2 start at 20.0
 ... 20
 ... 21
 ... 22
 ... 23
 Job 3 operation 2 stop
-Job 4 operation 0 start
+Job 4 operation 0 start at 44.0
 ... 44
 ... 45
 ... 46
 ... 47
 Job 4 operation 0 stop
-Job 4 operation 1 start
-... 12
+Job 4 operation 1 start at 13.0
 ... 13
 ... 14
 ... 15
+... 16
 Job 4 operation 1 stop
-Job 4 operation 2 start
+Job 4 operation 2 start at 24.0
 ... 24
 ... 25
 ... 26
@@ -107,9 +107,9 @@ Job 4 operation 2 start
 ... 37
 ... 38
 Job 4 operation 2 stop
-Job 0 ends at 57.0
-Job 1 ends at 8.0
-Job 2 ends at 17.0
-Job 3 ends at 24.000000000000004
-Job 4 ends at 48.00000000000001
-Makespan is <gurobi.Var C0 (value 57.0)>
+Job 0 ends at 56.0
+Job 1 ends at 7.0
+Job 2 ends at 15.999999345550995
+Job 3 ends at 23.0
+Job 4 ends at 47.0
+Makespan is <gurobi.Var C0 (value 56.0)>

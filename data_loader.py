@@ -2,16 +2,17 @@ import os
 import numpy as np
 
 
-class ModelData():
-
+class ModelData:
     def __init__(self, path):
-        class _: pass
+        class _:
+            pass
+
         self.sets = _()
         self.parameters = _()
-        with open(path, 'r') as f:
-            lines = f.read().strip().split('\n')
-        self.sets.L = np.arange(int(lines[0])).astype('int').tolist()
-        self.sets.N = np.arange(int(lines[1])).astype('int').tolist()
+        with open(path, "r") as f:
+            lines = f.read().strip().split("\n")
+        self.sets.L = np.arange(int(lines[0])).astype("int").tolist()
+        self.sets.N = np.arange(int(lines[1])).astype("int").tolist()
         self.sets.M = []
         self.parameters.W = []
         self.parameters.S = []
@@ -46,7 +47,9 @@ class ModelData():
             self.parameters.D.append(D_i)
             self.parameters.P.append(P_i)
             self.parameters.A.append(A_i)
-        self.parameters.T = int(np.sum(np.sum(np.array(self.parameters.D).astype('object'))))
+        self.parameters.T = int(
+            np.sum(np.sum(np.array(self.parameters.D).astype("object")))
+        )
         for i in range(len(self.sets.N)):
             paddind_length = max(self.sets.M) - self.sets.M[i]
             for _ in range(paddind_length):
@@ -57,9 +60,10 @@ class ModelData():
 
 
 class ModelVars:
-
     def __init__(self):
-        class _: pass
+        class _:
+            pass
+
         # Decision variables
         self.variables = _()
         self.variables.x = None
