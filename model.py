@@ -6,9 +6,18 @@ import gurobipy as gp
 from gurobipy import GRB
 
 
+def save_checkpoint(model, where):
+    try:
+        model_check_point = np.array([abs(var.x) for var in model.getVars()])
+        np.save(os.path.join("sol", model.ModelName), model_check_point)
+    except:
+        pass
+
+
 class Model:
     def __init__(self, model_name, input, output, problem_cnt):
-        self.m = gp.Model(model_name)
+        print("Creating model: {}".format(model_name))
+        self.m = gp.Model(name=model_name)
         self.problem = problem_cnt.split(".")[0]
         self.data = copy.deepcopy(input)
         self.L_cnt = len(self.data.sets.L)
@@ -17,8 +26,68 @@ class Model:
         self.T_cnt = self.data.parameters.T
         self.output = copy.deepcopy(output)
 
+    def __cal_obj_numpy(self, x):
+        return (
+            np.max(np.max(x + self.data.parameters.D - 1, axis=1))
+            + np.sum(
+                self.data.parameters.W * np.max(x + self.data.parameters.D - 1, axis=1)
+            )
+            * self.window
+        )
+
+    def __get_sol_result_params(self, path):
+        try:
+            saved_model_params = np.load(path)
+            x_saved = np.empty((self.N_cnt, self.M_cnt)).astype("int")
+            y_saved = np.zeros((self.N_cnt, self.M_cnt, self.T_cnt)).astype("int")
+            tmp_T_cnt = (
+                int(
+                    (len(saved_model_params) - (1 + self.N_cnt))
+                    / self.N_cnt
+                    / self.M_cnt
+                )
+                - 1
+            )
+            npy_idx = 1 + self.N_cnt
+            for n in range(self.N_cnt):
+                for m in range(self.M_cnt):
+                    x_saved[n][m] = saved_model_params[npy_idx]
+                    npy_idx += 1
+            for n in range(self.N_cnt):
+                for m in range(self.M_cnt):
+                    for t in range(tmp_T_cnt):
+                        y_saved[n][m][t] = saved_model_params[npy_idx]
+                        npy_idx += 1
+            return x_saved, y_saved
+        except:
+            return None, None
+
+    def gen_operations_order(self, problem_prefix):
+        x_saved, _ = self.__get_sol_result_params(
+            os.path.join("sol", "{}.sol.npy".format(problem_prefix))
+        )
+        results = []
+        for n in range(self.N_cnt):
+            for m in range(self.M_cnt):
+                if self.data.parameters.S[n][m]:
+                    results.append(
+                        [
+                            n,
+                            m,
+                            x_saved[n][m],
+                            self.data.parameters.S[n][m],
+                            self.data.parameters.D[n][m],
+                            [],
+                        ]
+                    )
+        return results
+
     def pre_solve(self, window):
 
+        print("Running presolve...")
+        print("window = {}".format(window))
+
+        self.window = window
         self.data.parameters.D = (
             np.ceil(np.array(self.data.parameters.D) / window).astype("int").tolist()
         )
@@ -29,6 +98,7 @@ class Model:
         """
 
         dp = np.zeros((self.T_cnt, self.L_cnt)).astype("int")
+        x = np.empty((self.N_cnt, self.M_cnt))
         y = np.zeros((self.N_cnt, self.M_cnt, self.T_cnt)).astype("int")
         finish_time = -1 * np.ones((self.N_cnt, self.M_cnt)).astype("int")
 
@@ -40,7 +110,7 @@ class Model:
                     np.sum(self.data.parameters.D, axis=1).tolist(),
                     np.sum(self.data.parameters.S, axis=1).tolist(),
                 ),
-                key=lambda x: x[1] / x[2] / x[3],
+                key=lambda x: x[1],
                 reverse=True,
             )
             for job_idx, _, __, ___ in jobs_idx_sorted_by_w:
@@ -72,24 +142,38 @@ class Model:
                                     needed -= 1
                                     usage_queue_if_available.append(l)
                         if not needed:
+                            x[job_idx][operation_idx] = t
                             for t_prime in range(d):
                                 for l in usage_queue_if_available:
                                     dp[t + t_prime][l] = 1
                                 y[job_idx][operation_idx][t + t_prime] = 1
                             finish_time[job_idx][operation_idx] = t + d - 1
 
-        # 同時間資源使用不能超過總資源數
-        for t in range(self.T_cnt):
-            assert (
-                np.sum(
-                    [
-                        self.data.parameters.S[n][m] * y[n][m][t]
-                        for n in range(self.N_cnt)
-                        for m in range(self.M_cnt)
-                    ]
-                )
-                <= self.L_cnt
+        obj_from_greedy = self.__cal_obj_numpy(x)
+
+        if os.path.exists(os.path.join("sol", "{}.npy".format(self.m.ModelName))):
+
+            x_saved, y_saved = self.__get_sol_result_params(
+                os.path.join("sol", "{}.npy".format(self.m.ModelName))
             )
+
+            if x_saved is not None:
+                obj_from_saved = self.__cal_obj_numpy(x_saved)
+            else:
+                obj_from_saved = np.inf
+
+            print("saved: {}, greedy: {}".format(obj_from_saved, obj_from_greedy))
+
+            if obj_from_saved < obj_from_greedy:
+                print("Using saved...")
+                x = x_saved
+                y = y_saved
+            else:
+                print("Using greedy...")
+
+        else:
+            print("Using greedy...")
+            print("Objective value = {}".format(obj_from_greedy))
 
         # 操作必須連續執行
         for n in range(self.N_cnt):
@@ -126,7 +210,11 @@ class Model:
                     ) // 2
                     assert target > dependency
 
-        self.T_cnt = int(np.max(np.where(np.sum(np.sum(y, axis=0), axis=0) != 0))) + 5
+        self.T_cnt = min(
+            self.T_cnt,
+            int(np.max(np.where(np.sum(np.sum(y, axis=0), axis=0) != 0))) + 5,
+        )
+
         self.output.variables.C_max = self.m.addVar(
             vtype=GRB.INTEGER, lb=0.0, ub=float(self.T_cnt)
         )
@@ -140,47 +228,34 @@ class Model:
             self.N_cnt, self.M_cnt, self.T_cnt, vtype=GRB.BINARY, lb=0.0, ub=1.0
         )
 
-        self.output.variables.C_max.start = (
-            np.max(np.where(np.sum(np.sum(y, axis=0), axis=0) != 0)) + 1
-        )
-        for i, c in enumerate(
-            [np.max(np.where(x != 0)) + 1 for x in np.sum(y, axis=1)]
-        ):
+        for i, c in enumerate(np.max(x + self.data.parameters.D - 1, axis=1)):
             self.output.variables.C[i].start = c
+        self.output.variables.C_max.start = np.max(
+            np.max(x + self.data.parameters.D - 1, axis=1)
+        )
         for n in range(self.N_cnt):
-            for m in range(self.data.sets.M[n]):
-                self.output.variables.x[n, m].start = int(
-                    np.min(np.where(y[n][m] != 0))
-                )
             for m in range(self.M_cnt):
+                self.output.variables.x[n, m].start = x[n][m]
                 for t in range(self.T_cnt):
-                    self.output.variables.y[n, m, t].start = y[n][m][t]
-
-        results = []
-        for n in range(self.N_cnt):
-            for m in range(self.data.sets.M[n]):
-                results.append(
-                    [
-                        n,
-                        m,
-                        int(np.min(np.where(y[n][m] != 0))),
-                        self.data.parameters.S[n][m],
-                        self.data.parameters.D[n][m],
-                        [],
-                    ]
-                )
-        return results
+                    try:
+                        self.output.variables.y[n, m, t].start = y[n][m][t]
+                    except:
+                        print(n, m, t, self.T_cnt)
+                        exit()
 
     def formulation(self):
         """
         Set Objective
         """
         self.m.setObjective(
-            self.output.variables.C_max
-            + gp.quicksum(
-                (self.data.parameters.W[n] * self.output.variables.C[n])
-                for n in range(self.N_cnt)
-            ),
+            (
+                self.output.variables.C_max
+                + gp.quicksum(
+                    (self.data.parameters.W[n] * self.output.variables.C[n])
+                    for n in range(self.N_cnt)
+                )
+            )
+            * self.window,
             GRB.MINIMIZE,
         )
         print("Objective")
@@ -261,55 +336,10 @@ class Model:
                     )
         print("c5: Dependency 限制")
 
-    def optimize(self, time_limit=600):
+    def optimize(self, time_limit=np.inf, target=-np.inf):
         """
         Optimization
         """
         self.m.setParam("Timelimit", time_limit)
-        # self.m.params.BestObjStop = 820
-        self.m.optimize()
-
-    def dump_results(self):
-        results = []
-        # if self.m.status == GRB.Status.OPTIMAL:
-        print("The objective cost: {}".format(self.m.objVal))
-        with open(os.path.join("sol", "{}_sol.txt".format(self.problem)), "w") as f:
-            f.write("The objective cost: {}\n".format(self.m.objVal))
-            for n in range(self.N_cnt):
-                for m in range(self.M_cnt):
-                    if self.data.parameters.S[n][m]:
-                        queue = []
-                        for t in range(self.T_cnt):
-                            if np.round(
-                                self.m.getAttr("x", self.output.variables.y)[n, m, t]
-                            ):
-                                queue.append(t)
-                        f.write(
-                            "Job {} operation {} start at {}\n".format(
-                                n,
-                                m,
-                                (self.m.getAttr("x", self.output.variables.x)[n, m]),
-                            )
-                        )
-                        for q in queue:
-                            f.write("... {}\n".format(q))
-                        f.write("Job {} operation {} stop\n".format(n, m))
-                        results.append(
-                            [
-                                n,
-                                m,
-                                queue[0],
-                                self.data.parameters.S[n][m],
-                                self.data.parameters.D[n][m],
-                                [],
-                            ]
-                        )
-            for n in range(self.N_cnt):
-                f.write(
-                    "Job {} ends at {}\n".format(
-                        n, self.m.getAttr("x", self.output.variables.C)[n]
-                    )
-                )
-            f.write("Makespan is {}\n".format(self.output.variables.C_max))
-
-        return results
+        self.m.params.BestObjStop = target
+        self.m.optimize(callback=save_checkpoint)

@@ -19,7 +19,7 @@ def gen_output_to_judge(results, N, T, path):
             f.write("{} {}\n".format(result[2], " ".join([str(r) for r in result[5]])))
 
 
-def shift_result(path, L, N, M, D, A):
+def shift_result(path, output, L, N, M, D, A):
 
     with open(path, "r") as f:
         simplified_results = [
@@ -60,5 +60,7 @@ def shift_result(path, L, N, M, D, A):
 
     simplified_results = sorted(simplified_results, key=lambda x: x[0])
 
-    for results in simplified_results:
-        print(" ".join([str(x) for x in results[1]]))
+    with open(output, "w") as f:
+        for results in simplified_results:
+            f.write(" ".join([str(x) for x in results[1]]))
+            f.write("\n")

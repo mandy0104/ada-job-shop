@@ -1,4 +1,5 @@
 import os
+import sys
 from data_loader import ModelData, ModelVars
 from model import Model
 from formatting import gen_output_to_judge, shift_result
@@ -16,32 +17,52 @@ def checkAns(in_, out_):
 
 if __name__ == "__main__":
 
-    problem = "05.in"
+    assert len(sys.argv) == 2
+
+    idx = int(sys.argv[1])
+
+    tuning_windows = [1, 1, 1, 400, 800, 20, 60, 100, 10, 40, 20]
+    public_problem_sets = [
+        "00.in",
+        "01.in",
+        "02.in",
+        "03.in",
+        "04.in",
+        "05.in",
+        "06.in",
+        "07.in",
+        "08.in",
+        "09.in",
+        "10.in",
+    ]
+
+    problem = public_problem_sets[idx]
+    problem_prefix = problem.split(".")[0]
+    output_path = os.path.join("ans", "{}.out".format(problem_prefix))
 
     model_input = ModelData(os.path.join("ada-final-public", problem))
     model_output = ModelVars()
 
+    model = Model(problem_prefix + ".sol", model_input, model_output, problem)
+    model.pre_solve(window=tuning_windows[idx])
+    model.formulation()
+    model.optimize(time_limit=999999999)
+
+    gen_output_to_judge(
+        model.gen_operations_order(problem_prefix),
+        model.L_cnt,
+        model.T_cnt,
+        output_path,
+    )
+
     shift_result(
-        "./ans/05.out",
+        output_path,
+        output_path,
         len(model_input.sets.L),
         len(model_input.sets.N),
         model_input.sets.M,
         model_input.parameters.D,
         model_input.parameters.A,
     )
-    exit()
 
-    model = Model("ada_final", model_input, model_output, problem)
-    results = model.pre_solve(window=40)
-    model.formulation()
-    model.optimize(time_limit=14000)
-    results = model.dump_results()
-
-    gen_output_to_judge(
-        results,
-        model.L_cnt,
-        model.T_cnt,
-        os.path.join("ans", "{}.out".format(problem.split(".")[0])),
-    )
-
-    checkAns(problem, os.path.join("ans", "{}.out".format(problem.split(".")[0])))
+    checkAns(problem, output_path)
