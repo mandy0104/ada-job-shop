@@ -82,7 +82,7 @@ class Model:
                     )
         return results
 
-    def pre_solve(self, window):
+    def pre_solve(self, window, sort_num=1):
 
         print("Running presolve...")
         print("window = {}".format(window))
@@ -110,7 +110,11 @@ class Model:
                     np.sum(self.data.parameters.D, axis=1).tolist(),
                     np.sum(self.data.parameters.S, axis=1).tolist(),
                 ),
-                key=lambda x: x[1],
+                key=lambda x: x[1]
+                if sort_num == 1
+                else x[1] / x[2]
+                if sort_num == 2
+                else x[1] / x[2] / x[3],
                 reverse=True,
             )
             for job_idx, _, __, ___ in jobs_idx_sorted_by_w:
@@ -340,6 +344,7 @@ class Model:
         """
         Optimization
         """
-        self.m.setParam("Timelimit", time_limit)
-        self.m.params.BestObjStop = target
-        self.m.optimize(callback=save_checkpoint)
+        if self.m.ModelName != "01.sol":
+            self.m.setParam("Timelimit", time_limit)
+            self.m.params.BestObjStop = target
+            self.m.optimize(callback=save_checkpoint)

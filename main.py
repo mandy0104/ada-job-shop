@@ -22,6 +22,7 @@ if __name__ == "__main__":
     idx = int(sys.argv[1])
 
     tuning_windows = [1, 1, 1, 400, 800, 20, 60, 100, 10, 40, 20]
+    tuning_sortby = [1, 1, 1, 1, 1, 1, 2, 2, 3, 2, 2]
     public_problem_sets = [
         "00.in",
         "01.in",
@@ -35,6 +36,19 @@ if __name__ == "__main__":
         "09.in",
         "10.in",
     ]
+    best_stop_objs = [
+        0,
+        67778.8,
+        174,
+        118417.256,
+        281538.264,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
 
     problem = public_problem_sets[idx]
     problem_prefix = problem.split(".")[0]
@@ -44,9 +58,9 @@ if __name__ == "__main__":
     model_output = ModelVars()
 
     model = Model(problem_prefix + ".sol", model_input, model_output, problem)
-    model.pre_solve(window=tuning_windows[idx])
+    model.pre_solve(window=tuning_windows[idx], sort_num=tuning_sortby[idx])
     model.formulation()
-    model.optimize(time_limit=999999999)
+    model.optimize(target=best_stop_objs[idx])
 
     gen_output_to_judge(
         model.gen_operations_order(problem_prefix),
